@@ -17,6 +17,9 @@ echo "Install python3 pwntools ..[ok]"
 echo "Install patchelf ......"
 apt install patchelf -y
 echo "Install patchelf ..[ok]"
+echo "Install elfutils ......"
+apt install elfutils -y
+echo "Install elfutils ..[ok]"
 echo "Install pwninit ......"
 FILE="./pwninit"
 if test -f "${FILE}"; then
