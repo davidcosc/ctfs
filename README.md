@@ -1,1 +1,1 @@
-# pico-ctf
+# ctfs
