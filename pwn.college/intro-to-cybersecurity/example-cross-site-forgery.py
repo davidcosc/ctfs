@@ -11,11 +11,17 @@ Theory:
 	same origin check: not same origin => only simple get, post, head
 	checks out since browser does get
 
-	same site check: not same site, since browser get expects hacker.localhost
+	same site check: not same site and not a navigational event, since browser get expects hacker.localhost
 	=> session cookies will not be sent along
 
 	we send back a redirect to the leak enpoint at challenge.localhost
-	the browser attempts redirect and sends along session cookie since same site checks out
+	the browser attempts redirect from hacker.localhost/ to challenge.localhost/leak
+	same origin check: not same origin => only simple get, post, head
+	same site check: not same site but a redirect is treated as a navigational event
+	=> browser sends along session cookie
+
+	alternatively to a redirect we could have also created an html link and triggered it via js, since
+	using a link is also treated as a navigational event
 
     db.execute(("CREATE TABLE IF NOT EXISTS users AS "
                 'SELECT "flag" AS username, ? as password, ? as leak'),
