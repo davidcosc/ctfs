@@ -7,6 +7,11 @@ from flask import Flask, request, session
 
 """
 Theory:
+    XSS:
+	An attacker injects a script into a trusted target website (in this case challenge.localhost)
+	Once the browser navigates to that website, the script is executed and i.e. the users session
+	info is leaked and sent to the attackers server, email etc.
+
 	We need to send the session cookie cross site to our own server.
 	We then can retrieve the cookie info from our server and use it in another request
 	to the info endpoint of the challenge.
