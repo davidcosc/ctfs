@@ -7,6 +7,10 @@ from flask import Flask
 
 """
 Theory:
+    CSRF:
+    An attacker tricks browser into sending a malicious request to the target (in this case challenge.localhost)
+	from a malicious site (in this case hacker.localhost). Hence this request is a cross site request. 
+
 	A cross site request forgery attack is an attack, that is based on a user
 	already logged in to the site you want to attack. In the case of this challenge
 	the login/authentication happens when requesting to /visit endpoint. The login creates
