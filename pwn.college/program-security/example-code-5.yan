@@ -1,0 +1,291 @@
+Yan code VM registers are all set to zero initially in main.
+
+Hex dump of section '.data':
+  Address
+  offsets
+  0x00004000 00000000 00000000 08400000 00000000 .........@......
+  0x00004010 00000000 00000000 00000000 00000000 ................
+
+  Base       yan
+  address    instructions
+  0x00004020 086304 a = 0x63
+             404104 c = 0x41
+             084008 vm+0x300+a = 0x41
+             040810 f = vm+0x300+a = 0x41 this changes instruction counter => jump 40e3 =  base address+0x41*0x3
+  Jump 402c
+             000801 push a = vm+0x300+e = a = 0x63
+             00 .c.@A..@........
+  0x00004030 2001 push b = vm+0x300+e = b = 0x00
+             004001 push c = vm+0x300+e = c = 0x71
+             200104 b = 0x1
+             200120 b = b+e = 0x4 outbuf offset
+             104b04 d = 0x4b
+             0010  ..@. .. . .K...
+  0x00004040 01 push d = vm+0x300+e = d = 0x4b
+             104504 d = 0x45
+             001001 push d = vm+0x300+e = d = 0x45
+             105904 d = 0x59
+             001001 push d = vm+0x300+e = d = 0x59
+             103a04 d = 0x3a ..E.....Y.....:.
+  0x00004050 001001 push d = vm+0x300+e = d = 0x3a
+             102004 d = 0x20
+             001001 push d = vm+0x300+e = d = 0x20
+             400504 c = 0x5 num bytes written 
+             080104 a = 0x1 stdout
+             10 .... ....@......
+  0x00004060 1002 write 5 bytes from vm buf addr+0x300+0x4 to stdout => KEY:
+             400001 pop c => c = vm+0x300+e = 0x20
+             200001 pop b => b = vm+0x300+e = 0x3a
+             080001 pop a => a = vm+0x300+e = 0x59
+             000801 push a = vm+0x300+e = 0x59
+             0020 ..@.. ......... 
+  0x00004070 01 push b = vm+0x300+e = b = 0x3a
+             004001 push c = vm+0x300+e = c = 0x20
+             203004 b = 0x30 inbuf offset
+             400e04 c = 0xe num bytes read
+             080004 a = 0x0 stdin
+             081002 read 14 bytes from stdin to vm buf addr+0x300+0x30 ..@. 0.@........
+  0x00004080 400001 pop c => c = vm+0x300+e = 0x20
+             200001 pop b => b = vm+0x300-e = 0x3a
+             080001 pop a => a = vm+0x300+e = 0x59
+             047904 f = 0x79 jump 418b
+
+  Jump 408c
+             200104 b = 0x1
+             20 @.. ......y. .. 
+  0x00004090 0120 b = b+e = 0x6 outbuf offset
+             104904 d = 0x49
+             001001 push d = vm+0x300+e = 0x49 I
+             104e04 d = 0x4e
+             001001 push d = vm+0x300+e = 0x4e N
+             1043 . .I.....N.....C
+  0x000040a0 04 d = 0x43
+             001001 push d = vm+0x300+e = 0x43 C
+             104f04 d = 0x4f
+             001001 push d = vm+0x300+e = 0x4f O
+             105204 d = 0x52
+             001001 push d = vm+0x300+e = 0x52 R.....O.....R....
+  0x000040b0 105204 d = 0x52
+             001001 push d = vm+0x300+e = 0x52 R
+             104504 d = 0x45
+             001001 push d = vm+0x300+e = 0x45 E
+             104304 d = 0x43
+             00 .R.....E.....C..
+  0x000040c0 1001 push d = vm+0x300+e = 0x43 C
+             105404 d = 0x54
+             001001 push d = vm+0x300+e = 0x54 T
+             102104 d = 0x21
+             001001 push d = vm+0x300+e = 0x21 !
+             100a ...T.....!......
+  0x000040d0 04 d = 0a
+             001001 push d = vm+0x300+e = 0x0a LF
+             400b04 c = 0x0b num bytes written
+             080104 a = 0x01 stdout
+             101002 write 11 bytes from vm+0x300+0x6 to stdout => INCORRECT!
+             080104 a = 0x1....@...........
+  0x000040e0 020002 exit
+
+  Jump 40e3
+             106404 d = 0x64
+             406404 c = 0x64
+             401008 vm+0x300+c = 0x64
+             109604 d = 0x96
+             40 ....d.@d.@.....@
+  0x000040f0 6504 c = 0x65
+             401008 vm+0x300+c = 0x96
+             107104 d = 0x71
+             406604 c = 0x66
+             401008 vm+0x300+c = 0x71
+             10e3 e.@...q.@f.@....
+  0x00004100 04 d = 0xe3
+             406704 c = 0x67
+             401008 vm+0x300+c = 0xe3
+             10e004 d = 0xe0
+             406804 c = 0x68
+             401008 vm+0x300+c = 0xe0 .@g.@.....@h.@..
+  0x00004110 108c04 d = 0x8c
+             406904 c = 0x69
+             401008 vm+0x300+c = 0x8c
+             101204 d = 0x12
+             406a04 c = 0x6a
+             40 ...@i.@.....@j.@
+  0x00004120 1008 vm+0x300+c = 0x12
+             108d04 d = 0x8d
+             406b04 c = 0x6b
+             401008 vm+0x300+c = 0x8d
+             10cf04 d = 0xcf
+             406c .....@k.@.....@l
+  0x00004130 04 c = 0x6c
+             401008 vm+0x300+c = 0xcf
+             105804 d = 0x58
+             406d04 c = 0x6d
+             401008 vm+0x300+c = 0x58
+             109004 d = 0x90 .@...X.@m.@.....
+  0x00004140 406e04 c = 0x6e
+             401008 vm+0x300+c = 0x90
+             10d804 d = 0xd8
+             406f04 c = 0x6f
+             401008 vm+0x300+c = 0xd8
+             10 @n.@.....@o.@...
+  0x00004150 7804 d = 0x78
+             407004 c = 0x70
+             401008 vm+0x300+c = 0x78
+             107c04 d = 0x7c
+             407104 c = 0x71
+             4010 x.@p.@...|.@q.@.
+  0x00004160 08 vm+0x300+c = 0x7c
+             040404 f = 0x4 => jump 402c
+
+  Jump 4164
+             083004 a = 0x30
+             206604 b = 0x66
+             400c04 c = 0x0c counter
+             100204 d = 0x02 .....0. f.@.....
+  0x00004170 100420 d = d+f = 0x73
+             001001 push d = vm+0x300+e = 0x73
+             04d004 f = 0xd0 => jump 4290
+
+  Jump 4179
+             400004 c = 0x00
+             104080 test c d
+             10 .. ......@...@..
+  0x00004180 8004 d = 0x80
+             081040 f = d => jump 41a0 if flags g include 0x8 aka success
+             102404 d = 0x24
+             061040 f = d => jump 408c aka failure
+
+  Jump 418b
+             000801 push a = vm+0x300+e = 0x59
+             0020 ....@.$...@.... 
+  0x00004190 01 push b = vm+0x300+e = 0x3a
+             004001 push c = vm+0x300+e = 0x20 
+             400001 pop c => c = vm+0x300+e = 0x20
+             200001 pop b => b = vm+0x300+e = 0x3a
+             080001 pop a => a = vm+0x300+e = 0x59
+             046c04 f = 0x6c => jump 4164..@.@.. ......l.
+
+  Jump 41a0
+  0x000041a0 200104 b = 0x1
+             200120 b = b+e = 0x6 outbuf offset
+             104304 d = 0x43
+             001001 push d = vm+0x300+e = 0x43 C
+             104f04 d = 0x4f
+             00  .. . .C.....O..
+  0x000041b0 1001 push d = vm+0x300+e = 0x4f O
+             105204 d = 0x52
+             001001 push d = vm+0x300+e = 0x52 R
+             105204 d = 0x52
+             001001 push d = vm+0x300+e = 0x52 R
+             1045 ...R.....R.....E
+  0x000041c0 04 d = 0x45
+             001001 push d = vm+0x300+e = 0x45 E
+             104304 d = 0x43
+             001001 push d = vm+0x300+e = 0x43 C
+             105404 d = 0x54
+             001001 push d = vm+0x300+e = 0x54 T.....C.....T....
+  0x000041d0 102104 d = 0x21
+             001001 push d = vm+0x300+e = 0x21 !
+             102004 d = 0x20
+             001001 push d = vm+0x300+e = 0x20 SPACE
+             105904 d = 0x59
+             00 .!..... .....Y..
+  0x000041e0 1001 push d = vm+0x300+e = 0x59 Y
+             106f04 d = 0x6f
+             001001 push d = vm+0x300+e = 0x6f O
+             107504 d = 0x75
+             001001 push d = vm+0x300+e = 0x75 U
+             1072 ...o.....u.....r
+  0x000041f0 04 d = 0x72
+             001001 push d = vm+0x300+e = 0x72 R
+             102004 d = 0x20
+             001001 push d = vm+0x300+e = 0x20 SPACE
+             106604 d = 0x66
+             001001 push d = vm+0x300+e = 0x66 F..... .....f....
+  0x00004200 106c04 d = 0x6c
+             001001 push d = vm+0x300+e = 0x6c L
+             106104 d = 0x61
+             001001 push d = vm+0x300+e = 0x61 A
+             106704 d = 0x67
+             00 .l.....a.....g..
+  0x00004210 1001 push d = vm+0x300+e = 0x67 G
+             103a04 d = 0x3a
+             001001 push d = vm+0x300+e = 0x3a :
+             100a04 d = 0x0a
+             001001 push d = vm+0x300+e = 0x0a LF
+             4014 ...:..........@.
+  0x00004220 04 c = 0x14 num bytes written
+             080104 a = 0x1 stdout
+             101002 write 14 bytes from vm+0x300+0x6 to stdout => CORRECT! Your flag:
+             102f04 d = 0x2f
+             408004 c = 0x80
+             401008 vm+0x300+c = 0x2f /......../.@..@..
+  0x00004230 106604 d = 0x66
+             408104 c = 0x81
+             401008 vm+0x300+c = 0x66 f
+             106c04 d = 0x6c
+             408204 c = 0x82
+             40 .f.@..@...l.@..@
+  0x00004240 1008 vm+0x300+c = 0x6c l
+             106104 d = 0x61
+             408304 c = 0x83
+             401008 vm+0x300+c = 0x61 a
+             106704 d = 0x67
+             4084 ...a.@..@...g.@.
+  0x00004250 04 c = 0x84
+             401008 vm+0x300+c = 0x67 g
+             100004 d = 0x00
+             408504 c = 0x85
+             401008 vm+0x300+c = 0x00 NULL TERM
+             088004 a = 0x80 file name addr offset.@.....@..@.....
+  0x00004260 200004 b = 0x00 O_RDONLYflags
+             011002 open /flag return fd to d
+             200004 b = 0x00
+             200120 b = b+e inbuf offset
+             40ff04 c = 0xff num bytes read
+             08  ..... .. . @...
+  0x00004270 0004 a = 0x00
+             081020 a = a+d = fd
+             081002 read 0xff bytes from fd to vm+0x300+b
+             200004 b = 0x00
+             200120 b = b+e flag addr offset
+             4000 .... ... .. . @.
+  0x00004280 04 c = 0x00
+             401020 c = c+d = num bytes read/written 
+             080104 a = 0x1 stdout
+             101002 write c bytes from flag addr to stdout
+             080004 a = 0x00 exit code
+             020002 exit .@. ............
+
+  Jump 4290 loop init
+  0x00004290 084020 a = a+c = 0x3c
+             204020 b = b+c = 0x72
+
+  Jump 4296 loop start
+             10ff04 d = 0xff
+             081020 a = a+d = 0x3b
+             201020 b = b+d = 0x71
+             00 .@  @ .....  . .
+  0x000042a0 0801 push a = vm+0x300+e = 0x3b
+             002001 push b = vm+0x300+e = 0x71
+             080810 a = vm+0x300+a = inbuf11
+             202010 b = vm+0x300+b = exp = 0x7c
+             082080 test b a
+             2000 ... ....  .. . .
+  0x000042b0 01 pop b => b = vm+0x300+e = 0x71
+             080001 pop a => a =vm+0x300+e = 0x3b
+             10e404 d = 0xe4
+             101040 f = d => jump 42cc if flags g include 0x10
+             10ff04 d = 0xff
+             401020 c = c+d = 0x0b dec counter.........@...@. 
+  0x000042c0 100004 d = 0x00
+             401080 test d c counter zero?
+             10d204 d = 0xd2
+             101040 f = d => jump 4296 if flags g include 0x10 aka if counter not zero
+
+  Jump 42cc
+             104001 push c = vm+0x300+e = 0x0c, pop d => d = vm+0x300+e = 0x0c
+             04 ...@.......@.@..
+  0x000042d0 0001 pop f => f = vm+0x300+e = 0x73 => jump 4179
+             0000b2
+             020000                   ........
+
