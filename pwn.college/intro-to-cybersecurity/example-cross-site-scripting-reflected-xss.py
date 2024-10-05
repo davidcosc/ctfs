@@ -12,6 +12,9 @@ attacker to gain some control within the victim's browser, leading to a number o
 downstream shenanigans.
 You will now have a /challenge/victim program that simulates a victim user visiting the web server.
 
+Note:
+Initially xss attacks used to download the malicious scripts run as part of the attack from an       
+atacker controlled separate website. Hence these attack where called cross site scripting.
 
 Reflected xss:
 Inspecting the target website the atacker can see that the site takes unvalidated url parameter
