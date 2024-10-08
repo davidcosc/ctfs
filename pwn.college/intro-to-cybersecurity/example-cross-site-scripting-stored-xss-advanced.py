@@ -7,9 +7,9 @@ from flask import Flask, request
 
 """
 Theory:
-The class of vulnerabilities in which injections occur into client-side web data (such as HTML)
-is called Cross Site Scripting, or XSS for short.
-In a typical XSS exploit, an attacker will cause their own code to be injected into (typically)
+Cross-Site Scripting (XSS) attacks are a type of injection, in which malicious scripts are injected
+into otherwise benign and trusted websites.
+In a typical XSS exploit, an attacker will cause their own code to be injected into
 the HTML produced by a web application and viewed by a victim user. This will then allow the
 attacker to gain some control within the victim's browser, leading to a number of potential
 downstream shenanigans.
