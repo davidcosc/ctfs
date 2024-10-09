@@ -4,6 +4,10 @@ import sys
 from Crypto.Util.strxor import strxor
 
 """
+Theory:
+XOR is its own inverse. XORing a message with a key once encrypts it.
+XORing it with the same key again decrypts it.
+
 #!/opt/pwn.college/python
 
 import random
