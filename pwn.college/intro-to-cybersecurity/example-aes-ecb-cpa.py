@@ -119,8 +119,8 @@ block_num = None
 flag_len = None
 flag = ""
 force = False
-exp_hash = None
-hash = None
+exp_ct = None
+ct = None
 alphabet = string.ascii_letters + string.digits + "-_.{}"
 j = 0
 r1, w1 = os.pipe()
@@ -193,7 +193,7 @@ print(f"Block size: {block_size}, Block num: {block_num}, Flag length: {flag_len
 # execute cpa
 while True:
 	content = None
-	if exp_hash:
+	if exp_ct:
 		if len(flag) < block_size:
 			content = (alphabet[j] + flag).encode()
 			num_padding = block_size-len(content)
@@ -221,18 +221,18 @@ while True:
 		if m:
 			ciphertext = b64decode(m.group(1).encode())
 
-	if exp_hash:
-		hash = b64encode(ciphertext[:block_size]).decode()
-		print(f"Hash: {hash}")
+	if exp_ct:
+		ct = b64encode(ciphertext[:block_size]).decode()
+		print(f"Ct: {ct}")
 	else:
 		block_offset = (block_num-1) * block_size
-		exp_hash = b64encode(ciphertext[block_offset:block_offset+block_size]).decode()
-		print(f"Expected hash: {exp_hash}")
+		exp_ct = b64encode(ciphertext[block_offset:block_offset+block_size]).decode()
+		print(f"Expected ct: {exp_ct}")
 
-	if (exp_hash and hash) and exp_hash == hash:
+	if (exp_ct and ct) and exp_ct == ct:
 		flag = alphabet[j-1] + flag
-		exp_hash = None
-		hash = None
+		exp_ct = None
+		ct = None
 		j = 0
 		print(f"Current flag: {flag}")
 
