@@ -52,8 +52,11 @@ app.config['SERVER_NAME'] = f"challenge.localhost:80"
 app.run("challenge.localhost", 80)
 """
 
-pat0 = re.compile(r".*Running on http://challenge.localhost:80\n")
-r1, w1 = os.pipe()
+pat0 = re.compile(r".*Press CTRL.*\n")
+# we use a pty to change the python subprocess stdout buffering to line buffered
+# otherwise pythons default buffering would be used, which would write server prints
+# in batches making it hard to link them to the respective requests to the server.
+mfd, sfd = os.openpty()
 pid = os.fork()
 
 if pid == -1:
@@ -61,21 +64,20 @@ if pid == -1:
 	exit(1)
 
 if pid == 0:
-	os.close(r1)
+	os.close(mfd)
 
-	os.dup2(w1, 1)
-	os.close(w1)
-
-	# stdout as stderr
-	os.dup2(1, 2)
+	os.dup2(sfd, 0)
+	os.dup2(sfd, 1)
+	os.dup2(sfd, 2)
+	os.close(sfd)
 
 	os.execv("/challenge/server", ["/challenge/server"])
 	print("Error execv.")
 	exit(1)
 
-os.close(w1)
+os.close(sfd)
 
-read_file = os.fdopen(r1, "r")
+read_file = os.fdopen(mfd, "r")
 
 while True:
 	line = read_file.readline()
@@ -91,4 +93,3 @@ while True:
 		params = {"directory": injection}
 		resp = requests.get(url, params=params)
 		print(resp.text)
-		exit(0)

