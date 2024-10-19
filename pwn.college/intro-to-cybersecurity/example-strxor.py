@@ -47,8 +47,10 @@ print(open("/flag").read())
 pat0 = re.compile(r".*- Encrypted String: (.*)\n")
 pat1 = re.compile(r".*- XOR Key String: (.*)\n")
 cipher = None
-r0, w0 = os.pipe()
-r1, w1 = os.pipe()
+# we use a pty to change the python subprocess stdout buffering to line buffered
+# otherwise pythons default buffering would be used, which would write server prints
+# in batches making it hard to link them to the respective requests to the server.
+mfd, sfd = os.openpty()
 pid = os.fork()
 
 if pid == -1:
@@ -56,27 +58,21 @@ if pid == -1:
 	exit(1)
 
 if pid == 0:
-	os.close(w0)
-	os.close(r1)
+	os.close(mfd)
 
-	os.dup2(r0, 0)
-	os.close(r0)
-
-	os.dup2(w1, 1)
-	os.close(w1)
-
-	# stdout as stderr
-	os.dup2(1, 2)
+	os.dup2(sfd, 0)
+	os.dup2(sfd, 1)
+	os.dup2(sfd, 2)
+	os.close(sfd)
 
 	os.execv("/challenge/run", ["/challenge/run"])
 	print("Error execv.", file=sys.stderr)
 	exit(1)
 
-os.close(r0)
-os.close(w1)
+os.close(sfd)
 
-read_file = os.fdopen(r1, "r")
-write_file = os.fdopen(w0, "wb")
+read_file = os.fdopen(mfd, "r")
+write_file = os.fdopen(mfd, "wb")
 
 while True:
 	line = read_file.readline()

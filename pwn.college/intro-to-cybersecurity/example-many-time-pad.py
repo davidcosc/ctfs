@@ -35,12 +35,14 @@ while True:
     print(f"Ciphertext (b64): {b64encode(ciphertext).decode()}")
 """
 
-pat0 = re.compile(r".*Flag Ciphertext \(b64\): (.*)\n")
-pat1 = re.compile(r".*Plaintext \(b64\): Ciphertext \(b64\): (.*)\n")
+pat0 = re.compile(r"Flag Ciphertext \(b64\): (.*)\n")
+pat1 = re.compile(r"Ciphertext \(b64\): (.*)\n")
 a_xor_k = None
 b = None
-r0, w0 = os.pipe()
-r1, w1 = os.pipe()
+# we use a pty to change the python subprocess stdout buffering to line buffered
+# otherwise pythons default buffering would be used, which would write server prints
+# in batches making it hard to link them to the respective requests to the server.
+mfd, sfd = os.openpty()
 pid = os.fork()
 
 if pid == -1:
@@ -48,27 +50,21 @@ if pid == -1:
 	exit(1)
 
 if pid == 0:
-	os.close(w0)
-	os.close(r1)
+	os.close(mfd)
 
-	os.dup2(r0, 0)
-	os.close(r0)
-
-	os.dup2(w1, 1)
-	os.close(w1)
-
-	# stdout as stderr
-	os.dup2(1, 2)
+	os.dup2(sfd, 0)
+	os.dup2(sfd, 1)
+	os.dup2(sfd, 2)
+	os.close(sfd)
 
 	os.execv("/challenge/run", ["/challenge/run"])
 	print("Error execv.", file=sys.stderr)
 	exit(1)
 
-os.close(r0)
-os.close(w1)
+os.close(sfd)
 
-read_file = os.fdopen(r1, "r")
-write_file = os.fdopen(w0, "wb")
+read_file = os.fdopen(mfd, "r")
+write_file = os.fdopen(mfd, "wb")
 
 while True:
 	line = read_file.readline()
@@ -77,7 +73,6 @@ while True:
 	m = pat0.match(line)
 	if m:
 		a_xor_k = b64decode(m.group(1).encode())
-		print(a_xor_k)
 		b = "b"*len(a_xor_k)
 		write_file.write(b64encode(b.encode()) + b"\n")
 		write_file.flush()
@@ -85,6 +80,5 @@ while True:
 	m = pat1.match(line)
 	if m:
 		b_xor_k = b64decode(m.group(1).encode())
-		print(b_xor_k)
 		a = strxor(strxor(a_xor_k, b_xor_k), b.encode())
-		print(a.encode())
+		print(a.decode())
