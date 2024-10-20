@@ -1,7 +1,6 @@
 import os
 import re
 import sys
-import time
 from base64 import b64decode, b64encode
 
 
@@ -76,14 +75,14 @@ while line := sys.stdin.readline():
     if plaintext == "sleep":
         print("Sleeping!")
         time.sleep(1)
-    elif plaintext == "flag!":
+    elif plaintext == "flag":
         print("Victory! Your flag:")
         print(open("/flag").read())
     else:
         print("Unknown command!")
 '''
 
-# dispatcher handling
+# handle dispatcher
 ct_b64 = None
 r0, w0 = os.pipe()
 pid = os.fork()
@@ -104,13 +103,12 @@ if pid == 0:
 
 os.close(w0)
 
-rf = os.fdopen(r0, "r")
-ct_b64 = rf.readline().split()[1]
-rf.close()
+read_file = os.fdopen(r0, "r")
+ct_b64 = read_file.readline().split()[1]
+read_file.close()
 print(f"Untampered ciphertext (b64): {ct_b64}")
 
-# worker handling
-pat0 = re.compile(r".*Victory! Your flag:\n")
+# handle worker
 mfd, sfd = os.openpty()
 pid = os.fork()
 
@@ -128,6 +126,7 @@ if pid == 0:
 
 	os.execv("/challenge/worker", ["/challenge/worker"])
 	print("Error execv.", file=sys.stderr)
+	exit(1)
 
 os.close(sfd)
 
@@ -135,20 +134,12 @@ read_file = os.fdopen(mfd, "r")
 write_file = os.fdopen(mfd, "w")
 
 ct = b64decode(ct_b64.encode())
-iv, ct = ct[:16], ct[16:]
-pt_xor_iv_prefix = int.from_bytes(b"sleep", sys.byteorder) ^ int.from_bytes(iv[:5], sys.byteorder)
-tampered_iv_prefix = (pt_xor_iv_prefix ^ int.from_bytes(b"flag!", sys.byteorder)).to_bytes(5, sys.byteorder)
-
-iv = tampered_iv_prefix + iv[5:]
-ct = iv+ct
-ct = b64encode(ct).decode()
-write_file.write(f"TASK: {ct}\n")
-
-for _ in range(3):
-	line = read_file.readline()
-	print(line, end="")
-
-	m = pat0.match(line)
-	if m:
-		print(read_file.readline())
-
+iv1, ct = ct[:16], ct[16:]
+pt1 = b"sleep" + bytes([11]*11)
+pt2 = b"flag" + bytes([12]*12)
+iv2 = (int.from_bytes(iv1, sys.byteorder) ^ int.from_bytes(pt1, sys.byteorder) ^ int.from_bytes(pt2, sys.byteorder)).to_bytes(16, sys.byteorder)
+write_file.write("TASK: "+b64encode(iv2+ct).decode()+"\n")
+print(read_file.readline(), end="")
+print(read_file.readline(), end="")
+print(read_file.readline(), end="")
+print(read_file.readline(), end="")
