@@ -8,28 +8,39 @@ from base64 import b64decode, b64encode
 
 """
 Theory:
-We can decrypt each block based on its previous block.
-D(Cn) = X = Cn-1 ^ Pn
-We consider each block pair separately. We call Cn-1 initial initialization vector IIV. We are not
-interested in its ciphertext. Like the IV we only use it for xoring.
-D(C) = X = IIV ^ P
-Once we manipulate it, we call the IIV zeroing initialization vector ZIV. At no point are we
-manipulating the ciphertext. Hence the ciphertext will always be decrypted to the same xor-text X.
-X = IIV ^ Piiv
-X = ZIV ^ Pziv
-We are going to deduce Piiv byte by byte, starting at the last byte. Manipulating the last byte of
-the IV will directly affect the last byte of P. We can ignore the remaining bytes. We call the
-currently manipulated byte of the IV y. We iteratively let y be 0-255 and make a decryption request.
-We know, that the value of y for which we do not receive a padding error will result in a padding of
-1 for the plaintext. This allows us to deduce the last byte of X by xoring y and 1.
-x,x,x,x = ziv,ziv,ziv,y ^ pziv,pziv,pziv,1
-x = y ^ 1
-We can deduce the last byte of the actual plaintext, by xoring x with the last byte of IIV since
-x is always the same for all combinations of plaintext and iv.
-For the next byte we craft ZIV such that the last byte of p should result in padding value 2. We
-can do so by setting the last byte of ZIV to x and then xoring it with 2.
-x,x,x,x = ziv,ziv,y,x^2 ^ pziv,pziv,2,2
-x,x,x,x ^ ziv,ziv,y,x^2 = pziv,pziv,2,2
+With a padding oracle attack we can decrypt any block of ciphertext n by manipulating the previous
+ciphertext block n-1.
+Pn = Dk(Cn) ^ Cn-1
+C0 = IV
+For simplicity we let Dk(Cn) be Xn.
+Since this is a chosen-ciphertext attack, we have control over the entire ciphertext message.
+We can change the value of Cn-1 to anything. We do not change Cn. This ensures, that Xn remains the
+same. If we can figure out Xn using the padding oracle, we can deduce Pn by calculating Xn ^ Cn-1
+without any knowledge about the key k. For better readability we call Cn-1 IIV from here on.
+
+Since we never change Cn and thus Xn, any change to a byte i of IIV changes the byte i of Pn.
+p1,...,pi = x1,...,xi ^ iiv1,...,iivi
+
+The oracle:
+Given a block sequence of bytes Y = y1,...,yn, we define an oracle O(Y) which yields 1 if the
+decryption in CBC mode has correct padding.
+
+Last byte oracle:
+For block n we compute the last byte Xn. We call it the last byte oracle.
+Let ziv1,...,zivi be random bytes and let ZIV = ziv1,...,zivi. We forge a fake ciphertext ZIV|Cn by
+concatenating the two blocks. If O(ZIV|Cn) == 1 then Xn ^ ZIV ends with valid padding. The padding va>
+Pn contains random plaintext bytes p1,..,pi-1. If pi-1 is 2, a value of 2 for pi would also result in
+valid padding. We can check this by running the same oracle again, but this time with a different
+value for pi-1. If O(ZIV'|Cn) == 1, the padding value must be 1.
+If O is ever != 1, we adjust the last byte of ZIV to a different value. In the worst case this means,
+that the last byte take on all values from 0-255 until O evaluates to 1.
+x1,...,xi = pziv1,...,1 ^ ziv1,...,zivi
+We can calculate xi = 1 ^ zivi.
+We can calculate pi = zivi ^ iivi, since xi is the same value in both cases due to Cn never changing.
+
+We iteratively reapeat the oracle for all remaining bytes 1,...,i-1.
+We adjust ZIV = ziv1,...,zivi-1, xi ^ 2. This ensures pzivi will be 2, since xi ^ xi ^ 2 = 2.
+It also ensures pzivi-1 = 2 if O(ZIV|Cn) == 1, since 22 is the only combination of valid padding.
 """
 
 # handle dispatcher
@@ -64,7 +75,7 @@ print(f"Intercepted dispatched ciphertext blocks: {blocks}")
 
 # handle worker
 def do_oracle(msg):
-	value_error = False
+	valid_padding = False
 	pat0 = re.compile("ValueError.*\n")
 	pat1 = re.compile("Sleeping!\n")
 	pat2 = re.compile("Unknown command!\n")
@@ -99,50 +110,46 @@ def do_oracle(msg):
 		line = read_file.readline()
 
 		if pat0.match(line):
-			value_error = True
 			break
 
 		if pat1.match(line) or pat2.match(line) or pat3.match(line):
-			value_error = False
+			valid_padding = True
 			os.kill(pid, signal.SIGTERM)
 			break
 
 	os.waitpid(pid, 0)
-	return value_error
+	return valid_padding
 
 flag = b""
-initial_iv = blocks[0]
+iiv = blocks[0]
 
 for ct in blocks[1:]:
 	# single block attack
-	zeroing_iv = [0]*BLOCK_SIZE
-	print(f"IIV: {initial_iv}, CT: {ct}")
+	ziv = [0]*BLOCK_SIZE
+	print(f"IIV: {iiv}, CT: {ct}")
+	print(f"Current zeroing_iv: {bytes(ziv)}")
 	for pad_val in range(1, BLOCK_SIZE+1):
-		padding_iv = [pad_val ^ cur_byte for cur_byte in zeroing_iv]
+		padding_iv = [pad_val ^ cur_byte for cur_byte in ziv]
 
-		for y in range(256):
-			padding_iv[-pad_val] = y
-			iv = bytes(padding_iv)
-			print(f"Checking iv {iv}")
-			if not do_oracle(iv+ct):
+		for candidate in range(256):
+			padding_iv[-pad_val] = candidate
+			if do_oracle(bytes(padding_iv)+ct):
 				if pad_val == 1:
 					# make sure the padding really is of length 1 by changing
-					# the penultimate block and querying the oracle again
+					# the penultimate byte and querying the oracle again
 					padding_iv[-2] ^= 1
-					iv = bytes(padding_iv)
-					print(f"Checking false positive with iv: {iv}")
-					if do_oracle(iv+ct):
+					if not do_oracle(bytes(padding_iv)+ct):
 						print("False positive.")
-						continue # false positive
+						continue
 				break
 
 		# set respective zeroing_iv byte to x
 		# this in turn will be xored with the expected padding byte for the next iteration
 		# and always result in the correct padding value x ^ x ^ pad_val = pad_val
-		zeroing_iv[-pad_val] = y ^ pad_val
-		print(f"Current zeroing_iv: {bytes(zeroing_iv)}")
-		print(f"Current palintext byte: {bytes([(zeroing_iv[-pad_val] ^ initial_iv[-pad_val])])}")
+		ziv[-pad_val] = candidate ^ pad_val
+		print(f"Current zeroing_iv: {bytes(ziv)}")
+		print(f"Current palintext byte: {bytes([(ziv[-pad_val] ^ iiv[-pad_val])])}")
 
-	flag += bytes([ziv_byte ^ iv_byte for ziv_byte, iv_byte in zip(zeroing_iv, initial_iv)])
+	flag += bytes([ziv_byte ^ iv_byte for ziv_byte, iv_byte in zip(ziv, iiv)])
 	print(flag)
-	initial_iv = ct
+	iiv = ct
