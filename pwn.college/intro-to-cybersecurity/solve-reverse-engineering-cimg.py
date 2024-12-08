@@ -26,7 +26,7 @@ for i in range(0, len(data), block_size):
         extracted_bytes.append(pixel)
 
 # Set up cimg header
-expected_cimg_header = ["63", "49", "4d", "47", "02", "00", "4c", "18"]
+expected_cimg_header = ["63", "49", "4d", "47", "03", "00", "4c", "18", "01", "00", "00", "00", "01", "00"]
 expected_cimg_body = []
 
 # Extracted bytes to cimg bytes
