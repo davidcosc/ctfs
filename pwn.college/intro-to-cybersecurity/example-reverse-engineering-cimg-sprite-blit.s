@@ -140,42 +140,48 @@
   401470:	31 ed                	xor    ebp,ebp
   401472:	e8 16 0a 00 00       	call   401e8d <display>
 
-  # check something that is set in handle_4
-  401477:	44 8b 74 24 1c       	mov    r14d,DWORD PTR [rsp+0x1c]
+  # check dimensions 0x720
+  401477:	44 8b 74 24 1c       	mov    r14d,DWORD PTR [rsp+0x1c] # dimensions
   40147c:	4c 8b 6c 24 20       	mov    r13,QWORD PTR [rsp+0x20]
   401481:	41 81 fe 20 07 00 00 	cmp    r14d,0x720
-  401488:	40 0f 94 c5          	sete   bpl # set win true if smth 0x720
+  401488:	40 0f 94 c5          	sete   bpl # set win true if dimensions 0x720
 
-  40148c:	31 db                	xor    ebx,ebx
-  40148e:	45 31 ff             	xor    r15d,r15d
+  # check expected cimg output
+  40148c:	31 db                	xor    ebx,ebx # byte_counter
+  40148e:	45 31 ff             	xor    r15d,r15d # counter
   401491:	41 39 de             	cmp    r14d,ebx
-  401494:	76 3f                	jbe    4014d5 <main+0x1f1>
-  401496:	81 fb 20 07 00 00    	cmp    ebx,0x720
-  40149c:	74 37                	je     4014d5 <main+0x1f1>
-  40149e:	41 8a 45 13          	mov    al,BYTE PTR [r13+0x13]
-  4014a2:	41 3a 44 24 13       	cmp    al,BYTE PTR [r12+0x13]
-  4014a7:	41 0f 45 ef          	cmovne ebp,r15d
-  4014ab:	3c 20                	cmp    al,0x20
-  4014ad:	74 1a                	je     4014c9 <main+0x1e5>
-  4014af:	3c 0a                	cmp    al,0xa
-  4014b1:	74 16                	je     4014c9 <main+0x1e5>
-  4014b3:	ba 18 00 00 00       	mov    edx,0x18
-  4014b8:	4c 89 e6             	mov    rsi,r12
-  4014bb:	4c 89 ef             	mov    rdi,r13
-  4014be:	e8 5d fd ff ff       	call   401220 <memcmp@plt>
-  4014c3:	85 c0                	test   eax,eax
-  4014c5:	41 0f 45 ef          	cmovne ebp,r15d
-  4014c9:	ff c3                	inc    ebx
-  4014cb:	49 83 c5 18          	add    r13,0x18
-  4014cf:	49 83 c4 18          	add    r12,0x18
-  4014d3:	eb bc                	jmp    401491 <main+0x1ad>
-  4014d5:	48 81 3d 90 e6 00 00 	cmp    QWORD PTR [rip+0xe690],0x11d        # 40fb70 <total_data>
+  401494:	76 3f                	jbe    4014d5 <main+0x1f1> # if dimensions <= byte_counter jump check total data amount
+
+    401496:	81 fb 20 07 00 00    	cmp    ebx,0x720
+    40149c:	74 37                	je     4014d5 <main+0x1f1>
+    40149e:	41 8a 45 13          	mov    al,BYTE PTR [r13+0x13]
+    4014a2:	41 3a 44 24 13       	cmp    al,BYTE PTR [r12+0x13]
+    4014a7:	41 0f 45 ef          	cmovne ebp,r15d
+    4014ab:	3c 20                	cmp    al,0x20
+    4014ad:	74 1a                	je     4014c9 <main+0x1e5>
+    4014af:	3c 0a                	cmp    al,0xa
+    4014b1:	74 16                	je     4014c9 <main+0x1e5>
+    4014b3:	ba 18 00 00 00       	mov    edx,0x18
+    4014b8:	4c 89 e6             	mov    rsi,r12
+    4014bb:	4c 89 ef             	mov    rdi,r13
+    4014be:	e8 5d fd ff ff       	call   401220 <memcmp@plt>
+    4014c3:	85 c0                	test   eax,eax
+    4014c5:	41 0f 45 ef          	cmovne ebp,r15d
+    4014c9:	ff c3                	inc    ebx
+    4014cb:	49 83 c5 18          	add    r13,0x18
+    4014cf:	49 83 c4 18          	add    r12,0x18
+    4014d3:	eb bc                	jmp    401491 <main+0x1ad>
+
+  # check total data amount
+  4014d5:	48 81 3d 90 e6 00 00 	cmp    QWORD PTR [rip+0xe690],0x11d        # 40fb70 <total_data> data added by read exact
   4014dc:	1d 01 00 00 
   4014e0:	77 0d                	ja     4014ef <main+0x20b>
   4014e2:	40 80 e5 01          	and    bpl,0x1
   4014e6:	74 07                	je     4014ef <main+0x20b>
   4014e8:	31 c0                	xor    eax,eax
   4014ea:	e8 17 01 00 00       	call   401606 <win>
+
+  # check stack guard canary and function epilogue
   4014ef:	48 8b 84 24 28 10 00 	mov    rax,QWORD PTR [rsp+0x1028]
   4014f6:	00 
   4014f7:	64 48 33 04 25 28 00 	xor    rax,QWORD PTR fs:0x28
@@ -407,7 +413,7 @@
   401d28:	00 
 
   # vertical sprite repitition loop
-  401d29:	0f b6 44 24 1d       	movzx  eax,BYTE PTR [rsp+0x1d] # sprite render header addr + 0x1d as vertical repititions
+  401d29:	0f b6 44 24 1d       	movzx  eax,BYTE PTR [rsp+0x1d] # sprite render header addr + 0x07 as vertical repititions
   401d2e:	44 39 f8             	cmp    eax,r15d
   401d31:	0f 8e 2c 01 00 00    	jle    401e63 <handle_4+0x231> # if vertical repititions <= vertical repitition counter jump check stack guard canary and funciton epliogue
   401d37:	45 31 d2             	xor    r10d,r10d zero horizontal repitition counter
@@ -451,7 +457,7 @@
                   401dac:	48 98                	cdqe
                   401dae:	0f b6 54 84 22       	movzx  edx,BYTE PTR [rsp+rax*4+0x22] # rsp + 0x1f as sprite pixel buf => current sprite pixel char
                   401db3:	3a 54 24 1e          	cmp    dl,BYTE PTR [rsp+0x1e]
-                  401db7:	0f 84 84 00 00 00    	je     401e41 <handle_4+0x20f> # if current sprite pixel char == dircetve 4 last byte jump inc sprite width counter
+                  401db7:	0f 84 84 00 00 00    	je     401e41 <handle_4+0x20f> # if current sprite pixel char == dir 4 last byte jump inc sprite width counter
 
                   # print formatted pixel to rendered pixel buf
                   401dbd:	44 89 5c 24 0c       	mov    DWORD PTR [rsp+0xc],r11d
